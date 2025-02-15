@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reconocimiento de Imágenes con IA</title>
+    <title>Clasificador de Imágenes de Bosques</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -21,68 +21,85 @@
         a:hover {
             text-decoration: underline;
         }
-        #webcam-container {
-            margin-top: 20px;
+        #image-container img {
+            max-width: 300px;
+            margin-top: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+        }
+        #file-input {
+            margin-top: 15px;
         }
     </style>
 </head>
 <body>
 
-    <h1>Reconocimiento de Imágenes con IA</h1>
+    <h1>Clasificador de Imágenes de Bosques</h1>
     <p>Este proyecto forma parte del trabajo de investigación:  
        <strong>"IA e Imágenes contra el Cambio Climático"</strong> realizado por Víctor Zapata.</p>
     <p>Puedes descargar el documento completo aquí:  
        <a href="./IA%20e%20Imagenes%20contra%20el%20Cambio%20Climatico%20-%20Investiga%20Victor%20Zapata.pdf" download>
        Descargar el documento (PDF)</a></p>
 
-    <h2>Clasificador de Imágenes de Bosques</h2>
-    <p>Esta página muestra un modelo de IA entrenado con Google Teachable Machine  
-       para clasificar imágenes de bosques sanos y deteriorados.</p>
+    <h2>Sube una imagen para clasificarla</h2>
+    <p>Puedes subir una imagen de un bosque y el modelo intentará identificar si está sano o deteriorado.</p>
     
-    <button type="button" onclick="init()">Iniciar Clasificación</button>
-    <div id="webcam-container"></div>
+    <input type="file" id="file-input" accept="image/*">
+    <div id="image-container"></div>
     <div id="label-container"></div>
+
+    <p>Aquí tienes unas imágenes de ejemplo que puedes probar:  
+       <a href="./ForestExample/ForestExample-TestImages.zip" download>Descargar imágenes de prueba</a></p>
 
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
     <script type="text/javascript">
         const URL = "./ForestExample/";
 
-        let model, webcam, labelContainer, maxPredictions;
+        let model, labelContainer, maxPredictions;
 
         async function init() {
             const modelURL = URL + "model.json";
             const metadataURL = URL + "metadata.json";
-
             model = await tmImage.load(modelURL, metadataURL);
             maxPredictions = model.getTotalClasses();
 
-            const flip = true;
-            webcam = new tmImage.Webcam(300, 300, flip);
-            await webcam.setup();
-            await webcam.play();
-            window.requestAnimationFrame(loop);
-
-            document.getElementById("webcam-container").appendChild(webcam.canvas);
             labelContainer = document.getElementById("label-container");
             for (let i = 0; i < maxPredictions; i++) {
                 labelContainer.appendChild(document.createElement("div"));
             }
         }
 
-        async function loop() {
-            webcam.update();
-            await predict();
-            window.requestAnimationFrame(loop);
-        }
+        async function predict(imageElement) {
+            const prediction = await model.predict(imageElement);
+            labelContainer.innerHTML = ""; // Limpia resultados previos
 
-        async function predict() {
-            const prediction = await model.predict(webcam.canvas);
             for (let i = 0; i < maxPredictions; i++) {
                 const classPrediction = prediction[i].className + ": " + prediction[i].probability.toFixed(2);
-                labelContainer.childNodes[i].innerHTML = classPrediction;
+                let div = document.createElement("div");
+                div.innerHTML = classPrediction;
+                labelContainer.appendChild(div);
             }
         }
+
+        document.getElementById("file-input").addEventListener("change", function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onload = function() {
+                        document.getElementById("image-container").innerHTML = "";
+                        document.getElementById("image-container").appendChild(img);
+                        predict(img);
+                    };
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        init();
     </script>
 
 </body>
