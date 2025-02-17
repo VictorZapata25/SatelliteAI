@@ -27,15 +27,15 @@
   <input type="file" id="file-input" accept="image/*">
   <div id="image-container"></div>
   
-  <!-- Sección para Versión 1: Teachable Machine -->
+  <!-- Versión 1: Teachable Machine -->
   <div class="result-container">
       <h3>Versión 1: Modelo Teachable Machine</h3>
       <div id="label-container-tm"></div>
   </div>
   
-  <!-- Sección para Versión 3: Modelo Propio (SavedModel export convertido a TF.js) -->
+  <!-- Versión 3: Modelo Propio (GraphModel) -->
   <div class="result-container">
-      <h3>Versión 3: Modelo Propio</h3>
+      <h3>Versión 3: Modelo Propio (GraphModel)</h3>
       <div id="label-container-v3"></div>
   </div>
   
@@ -46,10 +46,10 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
   <script type="text/javascript">
-      // Definir las rutas para cada modelo:
+      // Rutas para cada modelo:
       const URL_TM = "./ForestExample/";             // Versión 1 (Teachable Machine)
-      const URL_V3 = "./ForestExample/ForestV3/";       // Versión 3 (Modelo propio convertido)
-
+      const URL_V3 = "./ForestExample/ForestV3/";       // Versión 3 (Modelo propio en formato graph-model)
+      
       // Variables globales para los modelos
       let modelTM, maxPredictionsTM;
       let modelV3;
@@ -69,11 +69,10 @@
           console.log("Modelo Teachable Machine cargado");
       }
       
-      // Inicialización del modelo propio (Versión 3)
+      // Inicialización del modelo propio (Versión 3) usando tf.loadGraphModel
       async function initV3() {
           try {
-              // Cargar el modelo convertido en formato TF.js (SavedModel export convertido)
-              modelV3 = await tf.loadLayersModel(URL_V3 + "model.json");
+              modelV3 = await tf.loadGraphModel(URL_V3 + "model.json");
               console.log("Modelo Propio (Versión 3) cargado:", modelV3);
           } catch (error) {
               console.error("Error al cargar el modelo propio (Versión 3):", error);
@@ -85,7 +84,7 @@
       async function predictTM(imageElement) {
           const prediction = await modelTM.predict(imageElement);
           const labelContainerTM = document.getElementById("label-container-tm");
-          labelContainerTM.innerHTML = ""; // Limpiar resultados previos
+          labelContainerTM.innerHTML = "";
           for (let i = 0; i < maxPredictionsTM; i++) {
               const classPrediction = prediction[i].className + ": " + prediction[i].probability.toFixed(2);
               const div = document.createElement("div");
@@ -94,28 +93,27 @@
           }
       }
       
-      // Función de predicción para el modelo propio (Versión 3)
+      // Función de predicción para el modelo propio (Versión 3, GraphModel)
       async function predictV3(imageElement) {
           try {
               if (!modelV3) {
                   throw new Error("El modelo propio (Versión 3) no está cargado");
               }
-              // Preprocesamiento: convertir la imagen a tensor, redimensionar a 224x224 y normalizar
+              // Preprocesar la imagen: convertir a tensor, redimensionar a 224x224, normalizar y añadir dimensión de batch.
               const tensor = tf.browser.fromPixels(imageElement)
                                   .resizeNearestNeighbor([224, 224])
                                   .toFloat()
                                   .div(tf.scalar(255))
                                   .expandDims();
               console.log("Tensor shape:", tensor.shape);
-              // Realizar la predicción
-              const predictionTensor = modelV3.predict(tensor);
-              const predictionData = await predictionTensor.data();
+              // Ejecutar la predicción. Se utiliza executeAsync pasando el input en un objeto cuyo key es "input_layer:0"
+              const outputTensor = await modelV3.executeAsync({'input_layer:0': tensor});
+              const predictionData = await outputTensor.data();
               console.log("Prediction data (V3):", predictionData);
-              // Interpretar la salida (se asume que la salida es un valor entre 0 y 1)
+              // Se asume que la salida es un tensor de forma [1, 1] con un valor entre 0 y 1 (activación sigmoide)
               const probability = predictionData[0];
               const label = probability > 0.5 ? "Healthy" : "Damaged";
-              const labelContainerV3 = document.getElementById("label-container-v3");
-              labelContainerV3.innerHTML = "Predicción: " + label + " (" + probability.toFixed(2) + ")";
+              document.getElementById("label-container-v3").innerHTML = "Predicción: " + label + " (" + probability.toFixed(2) + ")";
           } catch (error) {
               console.error("Error en predictV3:", error);
               document.getElementById("label-container-v3").innerHTML = "Error en la predicción del modelo propio (Versión 3).";
@@ -131,11 +129,10 @@
                   const img = new Image();
                   img.src = e.target.result;
                   img.onload = function() {
-                      // Mostrar la imagen subida
                       const imageContainer = document.getElementById("image-container");
                       imageContainer.innerHTML = "";
                       imageContainer.appendChild(img);
-                      // Ejecutar predicciones en ambas versiones
+                      // Ejecutar ambas predicciones
                       predictTM(img);
                       predictV3(img);
                   };
