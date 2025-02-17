@@ -48,11 +48,11 @@
       // Rutas para cada modelo:
       const URL_TM = "./ForestExample/";             // Versión 1 (Teachable Machine)
       const URL_CUSTOM = "./ForestExample/ForestV2/";   // Versión 2 (Tu modelo propio)
-
+      
       // Variables globales para los modelos
       let modelTM, maxPredictionsTM;
       let modelCustom;
-
+      
       // Inicialización del modelo Teachable Machine
       async function initTM() {
           const modelURL = URL_TM + "model.json";
@@ -67,48 +67,19 @@
           }
           console.log("Modelo Teachable Machine cargado");
       }
-
-      // Inicialización del modelo propio (Versión 2) con corrección de rutas en el weightsManifest
+      
+      // Inicialización del modelo propio (Versión 2)
       async function initCustom() {
           try {
-              const response = await fetch(URL_CUSTOM + "model.json");
-              const modelJSON = await response.json();
-
-              // Actualizar InputLayer: establecer inputShape y eliminar batch_shape
-              if (modelJSON.modelTopology &&
-                  modelJSON.modelTopology.model_config &&
-                  modelJSON.modelTopology.model_config.config &&
-                  modelJSON.modelTopology.model_config.config.layers) {
-                  const layersConfig = modelJSON.modelTopology.model_config.config.layers;
-                  layersConfig.forEach(layer => {
-                      // Si el nombre de la capa no tiene el prefijo "sequential/", añádelo.
-                      if (layer.config && layer.config.name && !layer.config.name.startsWith("sequential/")) {
-                          layer.config.name = "sequential/" + layer.config.name;
-                      }
-                      // Para el InputLayer, definir inputShape a partir de batch_shape y eliminar batch_shape.
-                      if (layer.class_name === "InputLayer" && layer.config.batch_shape) {
-                          layer.config.inputShape = layer.config.batch_shape.slice(1);
-                          delete layer.config.batch_shape;
-                      }
-                  });
-              }
-
-              // Actualizar las rutas de los archivos de pesos: agregar URL_CUSTOM como prefijo
-              if (modelJSON.weightsManifest && Array.isArray(modelJSON.weightsManifest)) {
-                  modelJSON.weightsManifest.forEach(manifest => {
-                      manifest.paths = manifest.paths.map(path => URL_CUSTOM + path);
-                  });
-              }
-
-              // Cargar el modelo a partir del JSON modificado
-              modelCustom = await tf.models.modelFromJSON(modelJSON);
+              // Cargar el modelo propio; se asume que model.json y todos los shards están en la misma carpeta.
+              modelCustom = await tf.loadLayersModel(URL_CUSTOM + "model.json");
               console.log("Modelo Propio cargado:", modelCustom);
           } catch (error) {
               console.error("Error al cargar el modelo propio:", error);
               document.getElementById("label-container-custom").innerHTML = "Error al cargar el modelo propio.";
           }
       }
-
+      
       // Función de predicción para el modelo Teachable Machine (Versión 1)
       async function predictTM(imageElement) {
           const prediction = await modelTM.predict(imageElement);
@@ -121,7 +92,7 @@
               labelContainerTM.appendChild(div);
           }
       }
-
+      
       // Función de predicción para el modelo propio (Versión 2)
       async function predictCustom(imageElement) {
           try {
@@ -149,7 +120,7 @@
               document.getElementById("label-container-custom").innerHTML = "Error en la predicción del modelo propio.";
           }
       }
-
+      
       // Al seleccionar un archivo, se carga la imagen y se ejecutan ambas predicciones
       document.getElementById("file-input").addEventListener("change", function(event) {
           const file = event.target.files[0];
@@ -171,7 +142,7 @@
               reader.readAsDataURL(file);
           }
       });
-
+      
       // Inicializar ambos modelos al cargar la página
       initTM();
       initCustom();
