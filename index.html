@@ -1,160 +1,143 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clasificador de Imágenes de Bosques</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 20px;
-        }
-        h1, h2, h3 {
-            color: #2c3e50;
-        }
-        a {
-            color: #3498db;
-            text-decoration: none;
-            font-weight: bold;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-        #image-container img {
-            max-width: 300px;
-            margin-top: 10px;
-            border: 2px solid #ddd;
-            border-radius: 5px;
-        }
-        #file-input {
-            margin-top: 15px;
-        }
-        .result-container {
-            margin-top: 20px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clasificador de Imágenes de Bosques</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
+    h1, h2, h3 { color: #2c3e50; }
+    a { color: #3498db; text-decoration: none; font-weight: bold; }
+    a:hover { text-decoration: underline; }
+    #image-container img { max-width: 300px; margin-top: 10px; border: 2px solid #ddd; border-radius: 5px; }
+    #file-input { margin-top: 15px; }
+    .result-container { margin-top: 20px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+  </style>
 </head>
 <body>
-
-    <h1>Clasificador de Imágenes de Bosques</h1>
-    <p>Este proyecto forma parte del trabajo de investigación:  
-       <strong>"IA e Imágenes contra el Cambio Climático"</strong> realizado por Víctor Zapata.</p>
-    <p>Puedes descargar el documento completo aquí:  
-       <a href="./IA%20e%20Imagenes%20contra%20el%20Cambio%20Climatico%20-%20Investiga%20Victor%20Zapata.pdf" download>
-       Descargar el documento (PDF)</a></p>
-
-    <h2>Sube una imagen para clasificarla</h2>
-    <p>Puedes subir una imagen de un bosque y el modelo intentará identificar si está sano o deteriorado.</p>
-    
-    <input type="file" id="file-input" accept="image/*">
-    <div id="image-container"></div>
-
-    <!-- Sección para Versión 1: Teachable Machine -->
-    <div class="result-container">
-        <h3>Versión 1: Modelo Teachable Machine</h3>
-        <div id="label-container-tm"></div>
-    </div>
-
-    <!-- Sección para Versión 2: Modelo Propio -->
-    <div class="result-container">
-        <h3>Versión 2: Modelo Propio</h3>
-        <div id="label-container-custom"></div>
-    </div>
-
-    <p>Aquí tienes unas imágenes de ejemplo que puedes probar:  
-       <a href="./ForestExample/ForestExample-TestImages.zip" download>Descargar imágenes de prueba</a></p>
-
-    <!-- Carga de librerías -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-    <script type="text/javascript">
-        // Rutas para cada modelo:
-        const URL_TM = "./ForestExample/";             // Versión 1 (Teachable Machine)
-        const URL_CUSTOM = "./ForestExample/ForestV2/";   // Versión 2 (Modelo propio)
-
-        // Variables globales
-        let modelTM, maxPredictionsTM;
-        let modelCustom;
-
-        // Inicialización del modelo Teachable Machine
-        async function initTM() {
-            const modelURL = URL_TM + "model.json";
-            const metadataURL = URL_TM + "metadata.json";
-            modelTM = await tmImage.load(modelURL, metadataURL);
-            maxPredictionsTM = modelTM.getTotalClasses();
-            // Prepara el contenedor de resultados para Versión 1
-            const labelContainerTM = document.getElementById("label-container-tm");
-            labelContainerTM.innerHTML = "";
-            for (let i = 0; i < maxPredictionsTM; i++) {
-                const div = document.createElement("div");
-                labelContainerTM.appendChild(div);
-            }
-        }
-
-        // Inicialización del modelo propio (Versión 2)
-        async function initCustom() {
-            modelCustom = await tf.loadLayersModel(URL_CUSTOM + "model.json");
-        }
-
-        // Función de predicción para el modelo Teachable Machine (Versión 1)
-        async function predictTM(imageElement) {
-            const prediction = await modelTM.predict(imageElement);
-            const labelContainerTM = document.getElementById("label-container-tm");
-            labelContainerTM.innerHTML = ""; // Limpiar resultados previos
-            for (let i = 0; i < maxPredictionsTM; i++) {
-                const classPrediction = prediction[i].className + ": " + prediction[i].probability.toFixed(2);
-                const div = document.createElement("div");
-                div.innerHTML = classPrediction;
-                labelContainerTM.appendChild(div);
-            }
-        }
-
-        // Función de predicción para el modelo propio (Versión 2)
-        async function predictCustom(imageElement) {
-            // Preprocesa la imagen: convierte a tensor, redimensiona y normaliza
-            const tensor = tf.browser.fromPixels(imageElement)
-                                .resizeNearestNeighbor([224, 224])
-                                .toFloat()
-                                .div(tf.scalar(255))
-                                .expandDims();
-            const prediction = await modelCustom.predict(tensor).data();
-            // Asumiendo que la salida es un único valor entre 0 y 1 (sigmoide)
-            const probability = prediction[0];
-            const label = probability > 0.5 ? "Healthy" : "Damaged";
-            const labelContainerCustom = document.getElementById("label-container-custom");
-            labelContainerCustom.innerHTML = "Predicción: " + label + " (" + probability.toFixed(2) + ")";
-        }
-
-        // Cuando se selecciona un archivo, se carga la imagen y se ejecutan ambas predicciones
-        document.getElementById("file-input").addEventListener("change", function(event) {
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const img = new Image();
-                    img.src = e.target.result;
-                    img.onload = function() {
-                        // Mostrar la imagen subida
-                        const imageContainer = document.getElementById("image-container");
-                        imageContainer.innerHTML = "";
-                        imageContainer.appendChild(img);
-                        // Ejecutar predicciones en ambas versiones
-                        predictTM(img);
-                        predictCustom(img);
-                    };
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-
-        // Inicializar ambos modelos al cargar la página
-        initTM();
-        initCustom();
-    </script>
-
+  <h1>Clasificador de Imágenes de Bosques</h1>
+  <p>Este proyecto forma parte del trabajo de investigación:  
+     <strong>"IA e Imágenes contra el Cambio Climático"</strong> realizado por Víctor Zapata.</p>
+  <p>Puedes descargar el documento completo aquí:  
+     <a href="./IA%20e%20Imagenes%20contra%20el%20Cambio%20Climatico%20-%20Investiga%20Victor%20Zapata.pdf" download>
+     Descargar el documento (PDF)</a></p>
+  <h2>Sube una imagen para clasificarla</h2>
+  <p>Puedes subir una imagen de un bosque y el modelo intentará identificar si está sano o deteriorado.</p>
+  <input type="file" id="file-input" accept="image/*">
+  <div id="image-container"></div>
+  
+  <!-- Sección para Versión 1: Teachable Machine -->
+  <div class="result-container">
+      <h3>Versión 1: Modelo Teachable Machine</h3>
+      <div id="label-container-tm"></div>
+  </div>
+  
+  <!-- Sección para Versión 2: Modelo Propio -->
+  <div class="result-container">
+      <h3>Versión 2: Modelo Propio</h3>
+      <div id="label-container-custom"></div>
+  </div>
+  
+  <p>Aquí tienes unas imágenes de ejemplo que puedes probar:  
+     <a href="./ForestExample/ForestExample-TestImages.zip" download>Descargar imágenes de prueba</a></p>
+  
+  <!-- Carga de librerías -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  <script type="text/javascript">
+      // Rutas para cada modelo:
+      const URL_TM = "./ForestExample/";             // Versión 1 (Teachable Machine)
+      const URL_CUSTOM = "./ForestExample/ForestV2/";   // Versión 2 (Tu modelo propio)
+      
+      // Variables globales para los modelos
+      let modelTM, maxPredictionsTM;
+      let modelCustom;
+      
+      // Inicialización del modelo Teachable Machine
+      async function initTM() {
+          const modelURL = URL_TM + "model.json";
+          const metadataURL = URL_TM + "metadata.json";
+          modelTM = await tmImage.load(modelURL, metadataURL);
+          maxPredictionsTM = modelTM.getTotalClasses();
+          const labelContainerTM = document.getElementById("label-container-tm");
+          labelContainerTM.innerHTML = "";
+          for (let i = 0; i < maxPredictionsTM; i++) {
+              const div = document.createElement("div");
+              labelContainerTM.appendChild(div);
+          }
+          console.log("Modelo Teachable Machine cargado");
+      }
+      
+      // Inicialización del modelo propio (Versión 2)
+      async function initCustom() {
+          modelCustom = await tf.loadLayersModel(URL_CUSTOM + "model.json");
+          console.log("Modelo Propio cargado");
+      }
+      
+      // Función de predicción para el modelo Teachable Machine (Versión 1)
+      async function predictTM(imageElement) {
+          const prediction = await modelTM.predict(imageElement);
+          const labelContainerTM = document.getElementById("label-container-tm");
+          labelContainerTM.innerHTML = ""; // Limpiar resultados previos
+          for (let i = 0; i < maxPredictionsTM; i++) {
+              const classPrediction = prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+              const div = document.createElement("div");
+              div.innerHTML = classPrediction;
+              labelContainerTM.appendChild(div);
+          }
+      }
+      
+      // Función de predicción para el modelo propio (Versión 2)
+      async function predictCustom(imageElement) {
+          try {
+              // Preprocesamiento: convertir la imagen a tensor, redimensionar y normalizar
+              const tensor = tf.browser.fromPixels(imageElement)
+                                  .resizeNearestNeighbor([224, 224])
+                                  .toFloat()
+                                  .div(tf.scalar(255))
+                                  .expandDims();
+              console.log("Tensor shape:", tensor.shape);
+              // Realizar la predicción
+              const predictionTensor = modelCustom.predict(tensor);
+              const predictionData = await predictionTensor.data();
+              console.log("Prediction data:", predictionData);
+              // Interpretar el resultado (se asume un único valor de salida entre 0 y 1)
+              const probability = predictionData[0];
+              const label = probability > 0.5 ? "Healthy" : "Damaged";
+              const labelContainerCustom = document.getElementById("label-container-custom");
+              labelContainerCustom.innerHTML = "Predicción: " + label + " (" + probability.toFixed(2) + ")";
+          } catch (error) {
+              console.error("Error en predictCustom:", error);
+              const labelContainerCustom = document.getElementById("label-container-custom");
+              labelContainerCustom.innerHTML = "Error en la predicción del modelo propio.";
+          }
+      }
+      
+      // Al seleccionar un archivo, se carga la imagen y se ejecutan ambas predicciones
+      document.getElementById("file-input").addEventListener("change", function(event) {
+          const file = event.target.files[0];
+          if (file) {
+              const reader = new FileReader();
+              reader.onload = function(e) {
+                  const img = new Image();
+                  img.src = e.target.result;
+                  img.onload = function() {
+                      // Mostrar la imagen subida
+                      const imageContainer = document.getElementById("image-container");
+                      imageContainer.innerHTML = "";
+                      imageContainer.appendChild(img);
+                      // Ejecutar predicciones en ambas versiones
+                      predictTM(img);
+                      predictCustom(img);
+                  };
+              };
+              reader.readAsDataURL(file);
+          }
+      });
+      
+      // Inicializar ambos modelos al cargar la página
+      initTM();
+      initCustom();
+  </script>
 </body>
 </html>
