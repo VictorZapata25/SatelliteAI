@@ -68,11 +68,42 @@
           console.log("Modelo Teachable Machine cargado");
       }
       
-      // Inicialización del modelo propio (Versión 2)
+      // Inicialización del modelo propio (Versión 2) con modificaciones en el JSON
       async function initCustom() {
           try {
-              // Cargar el modelo propio; se asume que model.json y todos los shards están en la misma carpeta.
-              modelCustom = await tf.loadLayersModel(URL_CUSTOM + "model.json");
+              const response = await fetch(URL_CUSTOM + "model.json");
+              const modelJSON = await response.json();
+              
+              // Modificar cada capa de tipo InputLayer:
+              if (modelJSON.modelTopology &&
+                  modelJSON.modelTopology.model_config &&
+                  modelJSON.modelTopology.model_config.config &&
+                  modelJSON.modelTopology.model_config.config.layers) {
+                  const layersConfig = modelJSON.modelTopology.model_config.config.layers;
+                  layersConfig.forEach(layer => {
+                      if (layer.class_name === "InputLayer" && layer.config.batch_shape) {
+                          // Establecer batchInputShape e inputShape
+                          layer.config.batchInputShape = layer.config.batch_shape;
+                          layer.config.inputShape = layer.config.batch_shape.slice(1);
+                          delete layer.config.batch_shape;
+                      }
+                      // (Opcional) Asegurar que el nombre de la capa tenga el prefijo "sequential/"
+                      if (layer.config && layer.config.name && !layer.config.name.startsWith("sequential/")) {
+                          layer.config.name = "sequential/" + layer.config.name;
+                      }
+                  });
+              }
+              
+              // Eliminar build_input_shape si existe
+              if (modelJSON.modelTopology &&
+                  modelJSON.modelTopology.model_config &&
+                  modelJSON.modelTopology.model_config.config &&
+                  modelJSON.modelTopology.model_config.config.build_input_shape) {
+                  delete modelJSON.modelTopology.model_config.config.build_input_shape;
+              }
+              
+              // Cargar el modelo a partir del JSON modificado
+              modelCustom = await tf.models.modelFromJSON(modelJSON);
               console.log("Modelo Propio cargado:", modelCustom);
           } catch (error) {
               console.error("Error al cargar el modelo propio:", error);
