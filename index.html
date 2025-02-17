@@ -68,15 +68,32 @@
           console.log("Modelo Teachable Machine cargado");
       }
       
-      // Inicialización del modelo propio (Versión 2)
+      // Inicialización del modelo propio (Versión 2) con modificación del JSON para InputLayer
       async function initCustom() {
           try {
-              modelCustom = await tf.loadLayersModel(URL_CUSTOM + "model.json");
+              const response = await fetch(URL_CUSTOM + "model.json");
+              const modelJSON = await response.json();
+              // Recorremos las capas y modificamos el InputLayer
+              if (modelJSON.modelTopology &&
+                  modelJSON.modelTopology.model_config &&
+                  modelJSON.modelTopology.model_config.config &&
+                  modelJSON.modelTopology.model_config.config.layers) {
+                  const layersConfig = modelJSON.modelTopology.model_config.config.layers;
+                  layersConfig.forEach(layer => {
+                      if(layer.class_name === "InputLayer" && layer.config.batch_shape) {
+                          // Establecemos inputShape quitando el primer elemento (batch) que es null
+                          layer.config.inputShape = layer.config.batch_shape.slice(1);
+                          // Opcionalmente, eliminamos batch_shape
+                          delete layer.config.batch_shape;
+                      }
+                  });
+              }
+              // Cargamos el modelo a partir del JSON modificado
+              modelCustom = await tf.models.modelFromJSON(modelJSON);
               console.log("Modelo Propio cargado:", modelCustom);
           } catch (error) {
               console.error("Error al cargar el modelo propio:", error);
-              const labelContainerCustom = document.getElementById("label-container-custom");
-              labelContainerCustom.innerHTML = "Error al cargar el modelo propio.";
+              document.getElementById("label-container-custom").innerHTML = "Error al cargar el modelo propio.";
           }
       }
       
