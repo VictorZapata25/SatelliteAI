@@ -22,7 +22,8 @@
      <a href="./IA%20e%20Imagenes%20contra%20el%20Cambio%20Climatico%20-%20Investiga%20Victor%20Zapata.pdf" download>
      Descargar el documento (PDF)</a></p>
   <h2>Sube una imagen para clasificarla</h2>
-  <p>Puedes subir una imagen de un bosque y el modelo intentará identificar si está sano o deteriorado.</p>
+  <p>Puedes subir una imagen de un bosque y ambos modelos intentarán identificar si está sano o deteriorado.</p>
+  
   <input type="file" id="file-input" accept="image/*">
   <div id="image-container"></div>
   
@@ -32,10 +33,10 @@
       <div id="label-container-tm"></div>
   </div>
   
-  <!-- Sección para Versión 2: Modelo Propio -->
+  <!-- Sección para Versión 3: Modelo Propio (SavedModel export convertido a TF.js) -->
   <div class="result-container">
-      <h3>Versión 2: Modelo Propio</h3>
-      <div id="label-container-custom"></div>
+      <h3>Versión 3: Modelo Propio</h3>
+      <div id="label-container-v3"></div>
   </div>
   
   <p>Aquí tienes unas imágenes de ejemplo que puedes probar:  
@@ -45,15 +46,15 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
   <script type="text/javascript">
-      // Rutas para cada modelo:
+      // Definir las rutas para cada modelo:
       const URL_TM = "./ForestExample/";             // Versión 1 (Teachable Machine)
-      const URL_CUSTOM = "./ForestExample/ForestV2/";   // Versión 2 (Tu modelo propio)
-      
+      const URL_V3 = "./ForestExample/ForestV3/";       // Versión 3 (Modelo propio convertido)
+
       // Variables globales para los modelos
       let modelTM, maxPredictionsTM;
-      let modelCustom;
+      let modelV3;
       
-      // Inicialización del modelo Teachable Machine
+      // Inicialización del modelo Teachable Machine (Versión 1)
       async function initTM() {
           const modelURL = URL_TM + "model.json";
           const metadataURL = URL_TM + "metadata.json";
@@ -68,50 +69,15 @@
           console.log("Modelo Teachable Machine cargado");
       }
       
-      // Inicialización del modelo propio (Versión 2) con modificaciones en el JSON
-      async function initCustom() {
+      // Inicialización del modelo propio (Versión 3)
+      async function initV3() {
           try {
-              const response = await fetch(URL_CUSTOM + "model.json");
-              const modelJSON = await response.json();
-              
-              // Recorrer las capas y modificar el InputLayer
-              if (
-                modelJSON.modelTopology &&
-                modelJSON.modelTopology.model_config &&
-                modelJSON.modelTopology.model_config.config &&
-                modelJSON.modelTopology.model_config.config.layers
-              ) {
-                const layersConfig = modelJSON.modelTopology.model_config.config.layers;
-                layersConfig.forEach(layer => {
-                  if (layer.class_name === "InputLayer" && layer.config.batch_shape) {
-                    // Establecer inputShape quitando el primer elemento (null)
-                    layer.config.inputShape = layer.config.batch_shape.slice(1);
-                    // Eliminar la propiedad batch_shape
-                    delete layer.config.batch_shape;
-                  }
-                  // (Opcional) Asegurar que el nombre de la capa tenga el prefijo "sequential/"
-                  if (layer.config && layer.config.name && !layer.config.name.startsWith("sequential/")) {
-                    layer.config.name = "sequential/" + layer.config.name;
-                  }
-                });
-              }
-              
-              // Eliminar build_input_shape si existe
-              if (
-                modelJSON.modelTopology &&
-                modelJSON.modelTopology.model_config &&
-                modelJSON.modelTopology.model_config.config &&
-                modelJSON.modelTopology.model_config.config.build_input_shape
-              ) {
-                delete modelJSON.modelTopology.model_config.config.build_input_shape;
-              }
-              
-              // Cargar el modelo a partir del JSON modificado
-              modelCustom = await tf.models.modelFromJSON(modelJSON);
-              console.log("Modelo Propio cargado:", modelCustom);
+              // Cargar el modelo convertido en formato TF.js (SavedModel export convertido)
+              modelV3 = await tf.loadLayersModel(URL_V3 + "model.json");
+              console.log("Modelo Propio (Versión 3) cargado:", modelV3);
           } catch (error) {
-              console.error("Error al cargar el modelo propio:", error);
-              document.getElementById("label-container-custom").innerHTML = "Error al cargar el modelo propio.";
+              console.error("Error al cargar el modelo propio (Versión 3):", error);
+              document.getElementById("label-container-v3").innerHTML = "Error al cargar el modelo propio (Versión 3).";
           }
       }
       
@@ -128,13 +94,13 @@
           }
       }
       
-      // Función de predicción para el modelo propio (Versión 2)
-      async function predictCustom(imageElement) {
+      // Función de predicción para el modelo propio (Versión 3)
+      async function predictV3(imageElement) {
           try {
-              if (!modelCustom) {
-                  throw new Error("El modelo propio no está cargado");
+              if (!modelV3) {
+                  throw new Error("El modelo propio (Versión 3) no está cargado");
               }
-              // Preprocesamiento: convertir la imagen a tensor, redimensionar y normalizar
+              // Preprocesamiento: convertir la imagen a tensor, redimensionar a 224x224 y normalizar
               const tensor = tf.browser.fromPixels(imageElement)
                                   .resizeNearestNeighbor([224, 224])
                                   .toFloat()
@@ -142,17 +108,17 @@
                                   .expandDims();
               console.log("Tensor shape:", tensor.shape);
               // Realizar la predicción
-              const predictionTensor = modelCustom.predict(tensor);
+              const predictionTensor = modelV3.predict(tensor);
               const predictionData = await predictionTensor.data();
-              console.log("Prediction data:", predictionData);
-              // Interpretar el resultado (se asume un único valor de salida entre 0 y 1)
+              console.log("Prediction data (V3):", predictionData);
+              // Interpretar la salida (se asume que la salida es un valor entre 0 y 1)
               const probability = predictionData[0];
               const label = probability > 0.5 ? "Healthy" : "Damaged";
-              const labelContainerCustom = document.getElementById("label-container-custom");
-              labelContainerCustom.innerHTML = "Predicción: " + label + " (" + probability.toFixed(2) + ")";
+              const labelContainerV3 = document.getElementById("label-container-v3");
+              labelContainerV3.innerHTML = "Predicción: " + label + " (" + probability.toFixed(2) + ")";
           } catch (error) {
-              console.error("Error en predictCustom:", error);
-              document.getElementById("label-container-custom").innerHTML = "Error en la predicción del modelo propio.";
+              console.error("Error en predictV3:", error);
+              document.getElementById("label-container-v3").innerHTML = "Error en la predicción del modelo propio (Versión 3).";
           }
       }
       
@@ -171,7 +137,7 @@
                       imageContainer.appendChild(img);
                       // Ejecutar predicciones en ambas versiones
                       predictTM(img);
-                      predictCustom(img);
+                      predictV3(img);
                   };
               };
               reader.readAsDataURL(file);
@@ -180,7 +146,7 @@
       
       // Inicializar ambos modelos al cargar la página
       initTM();
-      initCustom();
+      initV3();
   </script>
 </body>
 </html>
