@@ -70,8 +70,14 @@
       
       // Inicialización del modelo propio (Versión 2)
       async function initCustom() {
-          modelCustom = await tf.loadLayersModel(URL_CUSTOM + "model.json");
-          console.log("Modelo Propio cargado");
+          try {
+              modelCustom = await tf.loadLayersModel(URL_CUSTOM + "model.json");
+              console.log("Modelo Propio cargado:", modelCustom);
+          } catch (error) {
+              console.error("Error al cargar el modelo propio:", error);
+              const labelContainerCustom = document.getElementById("label-container-custom");
+              labelContainerCustom.innerHTML = "Error al cargar el modelo propio.";
+          }
       }
       
       // Función de predicción para el modelo Teachable Machine (Versión 1)
@@ -90,6 +96,9 @@
       // Función de predicción para el modelo propio (Versión 2)
       async function predictCustom(imageElement) {
           try {
+              if (!modelCustom) {
+                  throw new Error("El modelo propio no está cargado");
+              }
               // Preprocesamiento: convertir la imagen a tensor, redimensionar y normalizar
               const tensor = tf.browser.fromPixels(imageElement)
                                   .resizeNearestNeighbor([224, 224])
