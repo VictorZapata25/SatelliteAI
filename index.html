@@ -33,9 +33,9 @@
       <div id="label-container-tm"></div>
   </div>
   
-  <!-- Versión 3: Modelo Propio (GraphModel) -->
+  <!-- Versión 2: Modelo Propio (GraphModel) -->
   <div class="result-container">
-      <h3>Versión 3: Modelo Propio (GraphModel)</h3>
+      <h3>Versión 2: Modelo Propio (GraphModel)</h3>
       <div id="label-container-v3"></div>
   </div>
   
@@ -97,7 +97,7 @@
       async function predictV3(imageElement) {
           try {
               if (!modelV3) {
-                  throw new Error("El modelo propio (Versión 3) no está cargado");
+                  throw new Error("El modelo propio (Versión 2) no está cargado");
               }
               // Preprocesar la imagen: convertir a tensor, redimensionar a 224x224, normalizar y añadir dimensión de batch.
               const tensor = tf.browser.fromPixels(imageElement)
